@@ -1,5 +1,6 @@
-SUBDIRS := rtl_alu/alu
-
+SUBDIRS := \
+	rtl_alu/alu \
+	rtl_counter/counter
 .PHONY: lint test clean
 
 lint:
