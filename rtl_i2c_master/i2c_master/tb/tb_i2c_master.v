@@ -7,6 +7,7 @@ module tb_i2c_master;
     integer cycles;
     integer addr_idx;
     integer data_idx;
+    integer scl_rise_count;
 
     reg        clk;
     reg        rst;
@@ -55,18 +56,19 @@ module tb_i2c_master;
         $dumpfile("tb_i2c_master.vcd");
         $dumpvars(0, tb_i2c_master);
 
-        slave_addr    = 7'h50;
-        tx_data       = 8'hA5;
-        exp_addr_byte = {7'h50, 1'b0}; // 8'hA0
-        exp_data_byte = 8'hA5;
-        cap_addr      = 8'h00;
-        cap_data      = 8'h00;
-        addr_idx      = 0;
-        data_idx      = 0;
-        cycles        = 0;
-        start         = 1'b0;
-        sda_in        = 1'b1;
-        prev_scl      = 1'b1;
+        slave_addr     = 7'h50;
+        tx_data        = 8'hA5;
+        exp_addr_byte  = {7'h50, 1'b0}; // 8'hA0
+        exp_data_byte  = 8'hA5;
+        cap_addr       = 8'h00;
+        cap_data       = 8'h00;
+        addr_idx       = 0;
+        data_idx       = 0;
+        scl_rise_count = 0;
+        cycles         = 0;
+        start          = 1'b0;
+        sda_in         = 1'b1;
+        prev_scl       = 1'b1;
 
         // 1. Reset check
         @(negedge clk);
@@ -87,25 +89,27 @@ module tb_i2c_master;
         @(negedge clk);
         start = 1'b0;
 
-        // Step until transfer completes, simulating slave ACK on bit 8 and bit 17
+        // Step until transfer completes, simulating slave ACK on address and data ACK cycles
         while ((busy === 1'b1 || done !== 1'b1) && cycles < 500) begin
-            // Provide slave ACK (0) when master releases SDA during ACK high cycles
+            // Provide slave ACK (0) when master releases SDA during addr ACK or data ACK
             if (scl === 1'b1 && sda_oe === 1'b0 &&
-                (addr_idx == 8 || (addr_idx >= 8 && data_idx == 8))) begin
+                ((addr_idx == 8 && data_idx == 0) || data_idx == 8)) begin
                 sda_in = 1'b0;
             end else begin
                 sda_in = sda_bus;
             end
 
-            // Sample SDA on rising SCL during address and data bit clocks
+            // Sample SDA on rising SCL by transaction bit position
             if (prev_scl === 1'b0 && scl === 1'b1) begin
-                if (addr_idx < 8) begin
+                if (scl_rise_count < 8) begin
                     cap_addr[7 - addr_idx] = sda_bus;
                     addr_idx = addr_idx + 1;
-                end else if (addr_idx == 8 && data_idx < 8 && sda_oe === 1'b1) begin
+                end else if (scl_rise_count >= 9 && scl_rise_count <= 16) begin
                     cap_data[7 - data_idx] = sda_bus;
                     data_idx = data_idx + 1;
                 end
+
+                scl_rise_count = scl_rise_count + 1;
             end
 
             prev_scl = scl;
