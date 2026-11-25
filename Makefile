@@ -12,14 +12,14 @@ SUBDIRS := \
 .PHONY: lint test clean
 
 lint:
-	@for d in $(SUBDIRS); do \
-		$(MAKE) -C $$d lint || exit 1; \
-	done
+	@fail=0; for d in $(SUBDIRS); do \
+		$(MAKE) -C $$d lint || { echo "LINT FAILED: $$d"; fail=1; }; \
+	done; exit $$fail
 
 test:
-	@for d in $(SUBDIRS); do \
-		$(MAKE) -C $$d test || exit 1; \
-	done
+	@fail=0; for d in $(SUBDIRS); do \
+		$(MAKE) -C $$d test || { echo "TEST FAILED: $$d"; fail=1; }; \
+	done; exit $$fail
 
 clean:
 	@for d in $(SUBDIRS); do \
